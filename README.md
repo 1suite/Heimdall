@@ -79,6 +79,7 @@ Set via environment variables:
 |---|---|
 | `MAX_INPUT_FILE_SIZE_BYTES` | Maximum accepted size for uploaded scripts |
 | `SAFE_UPLOAD_SIZE_LIMIT_BYTES` | Threshold above which output files are gzip-compressed before upload |
+| `REGISTRY_SERVER_ID` | Guild ID to register the slash commands to |
 | `HEIMDALL_DC_TOKEN` | Bot token |
 
 ## Requirements
