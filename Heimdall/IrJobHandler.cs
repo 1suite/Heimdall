@@ -44,12 +44,16 @@ public class IrWorkerPool
     private async Task ProcessQueueAsync()
     {
         var pseudoEmitter = new PseudoEmitter();
+        const int maxCapacityBeforeReset = 10_000_000; // 10MB before reset. Not tunable via env vars
 
         await foreach (var job in _channel.Reader.ReadAllAsync())
         {
             try
             {
                 await RunJobAsync(job, pseudoEmitter);
+
+                if (pseudoEmitter.Capacity > maxCapacityBeforeReset)
+                    pseudoEmitter = new PseudoEmitter();
             }
             catch (Exception ex)
             {
