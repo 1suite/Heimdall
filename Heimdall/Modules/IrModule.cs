@@ -117,58 +117,71 @@ public class IrModule(IrWorkerPool pool) : InteractionModuleBase<SocketInteracti
             outputs.Add(("optimized_ir.pseudo.lua", Encoding.UTF8.GetBytes(result.OptimizedIr)));
         }
 
-        var longestLengthBytes = Math.Max(outputs[0].Data.Length, outputs[1].Data.Length);
+        var longestLengthBytes = outputs.Count > 1
+            ? Math.Max(outputs[0].Data.Length, outputs[1].Data.Length)
+            : outputs[0].Data.Length;
 
+        var streams = new List<MemoryStream>(outputs.Count);
         var files = new List<FileAttachment>(outputs.Count);
         var compressedAny = false;
         var stillTooLarge = false;
 
-        foreach (var (name, data) in outputs)
+        try
         {
-            if (data.LongLength <= _safeUploadLimitBytes)
+            foreach (var (name, data) in outputs)
             {
-                files.Add(new FileAttachment(new MemoryStream(data), name));
-                continue;
+                if (data.LongLength <= _safeUploadLimitBytes)
+                {
+                    var stream = new MemoryStream(data);
+                    streams.Add(stream);
+                    files.Add(new FileAttachment(stream, name));
+                    continue;
+                }
+
+                var compressed = GzipCompress(data);
+                if (compressed.LongLength <= _safeUploadLimitBytes)
+                {
+                    var stream = new MemoryStream(compressed);
+                    streams.Add(stream);
+                    files.Add(new FileAttachment(stream, name + ".gz"));
+                    compressedAny = true;
+                }
+                else
+                {
+                    stillTooLarge = true;
+                }
             }
 
-            var compressed = GzipCompress(data);
-            if (compressed.LongLength <= _safeUploadLimitBytes)
+            if (stillTooLarge)
             {
-                files.Add(new FileAttachment(new MemoryStream(compressed), name + ".gz"));
-
-                compressedAny = true;
+                await FollowupAsync(":x: The output is too large to upload even after GZIP compression. Try disabling some optimization passes, or use a smaller input file.");
+                return;
             }
-            else
+
+            var fileList = result.OptimizedIr is not null
+                ? "1. Unoptimized IR\n2. Optimized IR"
+                : "1. Unoptimized IR (no optimization passes were enabled)";
+
+            var compressionNote = compressedAny
+                ? $"\n\nOne or more output files exceeded our {_safeUploadLimitBytes / 1_000_000}MB limit (the biggest file was around {longestLengthBytes / 1_000_000}MB) and were GZIP-compressed (`.gz`)."
+                : "";
+
+            await FollowupWithFilesAsync(
+                files,
+                $":tada: Done!\n\nFiles:\n{fileList}{compressionNote}\n\n" +
+                "The pseudocode follows AT&T syntax: source operand(s) come first, and the destination is always the last operand." +
+                "Note: The files below have the `.lua` extension to get successfully embedded in the Discord Client. " +
+                "We do not plan on supporting [PUC-Rio (aka vanilla) Lua](<https://www.lua.org/>).\n\n" +
+                "_This is not a final product. This is a testing preview. Features are subject to change and may not currently function properly._"
+            );
+        }
+        finally
+        {
+            foreach (var stream in streams)
             {
-                stillTooLarge = true;
+                stream.Dispose(); // oops
             }
         }
-
-        if (stillTooLarge)
-        {
-            await FollowupAsync(":x: The output is too large to upload even after GZIP compression. Try disabling some optimization passes, or use a smaller input file.");
-            return;
-        }
-
-        var fileList = result.OptimizedIr is not null
-            ? "1. Unoptimized IR\n2. Optimized IR"
-            : "1. Unoptimized IR (no optimization passes were enabled)";
-
-        var compressionNote = compressedAny
-            ? $"\n\nOne or more output files exceeded our {_safeUploadLimitBytes / 1_000_000}MB limit (the biggest file was around {longestLengthBytes / 1_000_000}MB) and were GZIP-compressed (`.gz`)."
-            : "";
-
-        await FollowupWithFilesAsync(
-            files,
-            $":tada: Done!\n\nFiles:\n{fileList}{compressionNote}\n\n" +
-
-            "The pseudocode follows AT&T syntax: source operand(s) come first, and the destination is always the last operand." +
-
-            "Note: The files below have the `.lua` extension to get successfully embedded in the Discord Client. " +
-            "We do not plan on supporting [PUC-Rio (aka vanilla) Lua](<https://www.lua.org/>).\n\n" +
-
-            "_This is not a final product. This is a testing preview. Features are subject to change and may not currently function properly._"
-        );
     }
 
     private static byte[] GzipCompress(byte[] data)
