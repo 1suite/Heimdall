@@ -1,11 +1,4 @@
 version: 2
-registries:
-  oneobfuscator-git:
-    type: git
-    url: https://github.com/1suite/OneObfuscator
-    username: x-access-token
-    password: ${{ secrets.DEPENDABOT_ONEOBFUSCATOR_PAT }}
-
 updates:
   - package-ecosystem: "nuget"
     directory: "/"
