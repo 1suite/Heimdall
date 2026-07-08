@@ -1,0 +1,3 @@
+[submodule "OneObfuscator"]
+	path = OneObfuscator
+	url = https://github.com/1suite/OneObfuscator

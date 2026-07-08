@@ -1,0 +1,6 @@
+<Solution>
+  <Folder Name="/OneObfuscator/">
+    <Project Path="OneObfuscator/OneObfuscator.Engine/OneObfuscator.Engine.csproj" />
+  </Folder>
+  <Project Path="Heimdall/Heimdall.csproj" />
+</Solution>
