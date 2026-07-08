@@ -101,9 +101,9 @@ public class IrModule(IrWorkerPool pool) : InteractionModuleBase<SocketInteracti
             await FollowupAsync($":x: {ex.Message}\n\n```cs\n{ex.InnerException}\n```");
             return;
         }
-        catch (Exception)
+        catch (Exception ex)
         {
-            await FollowupAsync(":x: Something went wrong processing your file. Please try again, and let us know if it keeps happening.");
+            await FollowupAsync($":x: Something went wrong processing your file. Please try again, and let us know if it keeps happening.\n\n```cs\n{ex}\n```");
             return;
         }
 
