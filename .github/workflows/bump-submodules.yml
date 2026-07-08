@@ -17,7 +17,9 @@ jobs:
           app-id: ${{ secrets.APP_ID }}
           private-key: ${{ secrets.APP_PRIVATE_KEY }}
           owner: 1suite
-          repositories: Heimdall
+          repositories: |
+            Heimdall
+            OneObfuscator
 
       - name: Checkout with submodules
         uses: actions/checkout@v4
