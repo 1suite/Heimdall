@@ -1,0 +1,73 @@
+name: Bump submodules
+on:
+  repository_dispatch:
+    types: [submodule-updated]
+  workflow_dispatch: {}
+  schedule:
+    - cron: '0 6 * * *'
+
+jobs:
+  bump:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Generate App token
+        id: app-token
+        uses: actions/create-github-app-token@v1
+        with:
+          app-id: ${{ secrets.APP_ID }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
+          owner: 1suite
+          repositories: Heimdall
+
+      - name: Checkout with submodules
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 0
+          token: ${{ steps.app-token.outputs.token }}
+
+      - name: Configure git
+        run: |
+          git config user.name "submodule-bumper[bot]"
+          git config user.email "submodule-bumper[bot]@users.noreply.github.com"
+
+      - name: Bump each submodule and open a PR if changed
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+        run: |
+          set -e
+
+          paths=$(git config --file .gitmodules --get-regexp path | awk '{print $2}')
+
+          for path in $paths; do
+            old_sha=$(git rev-parse HEAD:"$path")
+
+            git submodule update --remote --merge "$path"
+
+            new_sha=$(git -C "$path" rev-parse HEAD)
+
+            if [ "$old_sha" = "$new_sha" ]; then
+              echo "No change for $path"
+              continue
+            fi
+
+            name=$(basename "$path")
+            short_new=${new_sha:0:7}
+            branch="bump-submodule/${name}-${short_new}"
+
+            git checkout -b "$branch" main
+            git submodule update --remote --merge "$path"
+            git add "$path"
+            git commit -m "chore(submodule): bump ${path} to ${short_new}" \
+                       -m "Updates submodule '${name}' from ${old_sha:0:7} to ${short_new}."
+            git push -u origin "$branch"
+
+            gh pr create \
+              --title "chore(submodule): bump ${name} to ${short_new}" \
+              --body "Bumps the \`${path}\` submodule from \`${old_sha:0:7}\` to \`${new_sha:0:7}\`." \
+              --base main \
+              --head "$branch"
+
+            git checkout main
+            git submodule update --init --recursive
+          done
