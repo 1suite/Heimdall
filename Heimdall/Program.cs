@@ -4,7 +4,7 @@ using Discord.WebSocket;
 
 using Microsoft.Extensions.DependencyInjection;
 
-using OneObfuscator.CLI.Emitters.LuauFrontend; // TODO: Migrate to separate `Emitters` namespace. Check for conflicts
+using OneObfuscator.Emitters.LuauFrontend;
 
 namespace Heimdall;
 

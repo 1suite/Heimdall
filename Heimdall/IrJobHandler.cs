@@ -3,7 +3,7 @@ using System.Threading.Channels;
 
 using Discord;
 
-using OneObfuscator.CLI.Emitters.LuauFrontend;
+using OneObfuscator.Emitters.LuauFrontend;
 using OneObfuscator.Engine;
 using OneObfuscator.Engine.Exceptions;
 using OneObfuscator.Engine.IR;

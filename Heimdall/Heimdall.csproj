@@ -2,7 +2,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\OneObfuscator\OneObfuscator.Engine\OneObfuscator.Engine.csproj" />
-    <ProjectReference Include="..\OneObfuscator\OneObfuscator.CLI\OneObfuscator.CLI.csproj" />
+    <ProjectReference Include="..\OneObfuscator\OneObfuscator.Emitters\OneObfuscator.Emitters.csproj" />
   </ItemGroup>
 
   <ItemGroup>
