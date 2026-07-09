@@ -15,10 +15,6 @@ WORKDIR /app
 
 COPY --from=build /app/publish .
 
-ENV MAX_INPUT_FILE_SIZE_BYTES=""
-ENV SAFE_UPLOAD_SIZE_LIMIT_BYTES=""
-ENV HEIMDALL_DC_TOKEN=""
-
 USER $APP_UID
 
 ENTRYPOINT ["dotnet", "Heimdall.dll"]
