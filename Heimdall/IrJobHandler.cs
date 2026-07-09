@@ -11,7 +11,7 @@ using OneObfuscator.Engine.IR.Optimization;
 
 namespace Heimdall;
 
-public record IrProgressUpdate(string Stage, TimeSpan Elapsed);
+public record IrProgressUpdate(string Stage, TimeSpan? Elapsed);
 
 public record IrResult(string UnoptimizedIr, string? OptimizedIr);
 
@@ -87,13 +87,14 @@ public class IrWorkerPool
         }
         catch (Exception ex)
         {
-            throw new IrProcessingException("An error occured while generating the CGF!\nThis is most likely **NOT** a problem with your script.", ex);
+            throw new IrProcessingException("An error occured while generating the CFG!\nThis is most likely **NOT** a problem with your script.", ex);
         }
 
         sw.Stop();
         await job.OnProgress(new IrProgressUpdate("Compiled to IR", sw.Elapsed));
 
         var emittedUnoptimizedIr = pseudoEmitter.Emit(ir.EntryBlock);
+        await job.OnProgress(new IrProgressUpdate("Built _unoptimized_ IR textually", null));
 
         if (job.OptimizationPipeline.Passes.Count == 0)
         {
@@ -110,14 +111,15 @@ public class IrWorkerPool
         {
             throw new IrProcessingException("An optimization pass failed! This is **NOT** a problem with your script.", ex);
         }
-        sw.Stop();
 
-        var emittedOptimizedIr = pseudoEmitter.Emit(ir.EntryBlock);
+        sw.Stop();
         await job.OnProgress(new IrProgressUpdate("Optimization complete", sw.Elapsed));
 
-        job.Completion.SetResult(new IrResult(emittedUnoptimizedIr, emittedOptimizedIr));
+        var emittedOptimizedIr = pseudoEmitter.Emit(ir.EntryBlock);
+        await job.OnProgress(new IrProgressUpdate("Built _optimized_ IR textually", null));
 
-        Debug.WriteLine("Setting result...");
+        job.Completion.SetResult(new IrResult(emittedUnoptimizedIr, emittedOptimizedIr));
+        Debug.WriteLine("[diag] Set result!");
     }
 
     public async Task<IrResult> SubmitAsync(IrJob job)
