@@ -85,10 +85,30 @@ public class IrModule(IrWorkerPool pool) : InteractionModuleBase<SocketInteracti
         if (phiEliminationPass) optimizationPipeline.Passes.Add(new PhiEliminationPass());
         if (commonSubexpressionEliminationPass) optimizationPipeline.Passes.Add(new CommonSubexpressionEliminationPass());
 
-        Task ReportProgress(IrProgressUpdate update) =>
-            FollowupAsync($":white_check_mark: {update.Stage}! Took `{update.Elapsed.TotalMilliseconds:F0}ms`");
+        var messageContents = new StringBuilder();
+        messageContents.AppendLine("## :hourglass: Processing...\n\nCurrently processing your input file with the following optimization passes:\n\n```");
 
-        await FollowupAsync($":hourglass: Submitting job...");
+        foreach (var pass in optimizationPipeline.Passes)
+        {
+            messageContents.Append("— ").AppendLine(pass.GetType().Name);
+        }
+
+        messageContents.AppendLine("```\n# :stopwatch: Progress\n\n> :incoming_envelope: Submitting IR job to worker pool..."); // Discord code block UI glitch
+        var message = await FollowupAsync(messageContents.ToString());
+
+        async Task ReportProgress(IrProgressUpdate update)
+        {
+            messageContents.Append($"> :white_check_mark: {update.Stage}!");
+
+            if (update.Elapsed is TimeSpan elapsed)
+            {
+                messageContents.Append($" _Took `{elapsed.TotalMilliseconds:F0}ms`_").ToString();
+            }
+
+            messageContents.AppendLine();
+            await message.ModifyAsync(msg => msg.Content = messageContents.ToString());
+        }
+
         var job = new IrJob(attachment, optimizationPipeline, ReportProgress);
 
         IrResult result;
@@ -98,12 +118,12 @@ public class IrModule(IrWorkerPool pool) : InteractionModuleBase<SocketInteracti
         }
         catch (IrProcessingException ex)
         {
-            await FollowupAsync($":x: {ex.Message}\n\n```cs\n{ex.InnerException}\n```");
+            await FollowupAsync($"## :x: Error\n\n{ex.Message}\n\n```cs\n{ex.InnerException}\n```");
             return;
         }
         catch (Exception ex)
         {
-            await FollowupAsync($":x: Something went wrong processing your file. Please try again, and let us know if it keeps happening.\n\n```cs\n{ex}\n```");
+            await FollowupAsync($"## :x: Error\n\nSomething went wrong processing your file. Please try again, and let us know if it keeps happening.\n\n```cs\n{ex}\n```");
             return;
         }
 
@@ -154,13 +174,13 @@ public class IrModule(IrWorkerPool pool) : InteractionModuleBase<SocketInteracti
 
             if (stillTooLarge)
             {
-                await FollowupAsync(":x: The output is too large to upload even after GZIP compression. Try disabling some optimization passes, or use a smaller input file.");
+                await FollowupAsync("## :x: Error\n\n The output is too large to upload even after GZIP compression. Try using a smaller input file.");
                 return;
             }
 
             var fileList = result.OptimizedIr is not null
-                ? "1. Unoptimized IR\n2. Optimized IR"
-                : "1. Unoptimized IR (no optimization passes were enabled)";
+                ? "1. The file named `unoptimized_ir.pseudo.lua` is the unoptimized IR\n2. The file named `optimized_ir.pseudo.lua` is the Optimized IR"
+                : "1. The file named `unoptimized_ir.pseudo.lua` is the unoptimized IR (no optimization passes were enabled)";
 
             var compressionNote = compressedAny
                 ? $"\n\nOne or more output files exceeded our {_safeUploadLimitBytes / 1_000_000}MB limit (the biggest file was around {longestLengthBytes / 1_000_000}MB) and were GZIP-compressed (`.gz`)."
@@ -168,9 +188,9 @@ public class IrModule(IrWorkerPool pool) : InteractionModuleBase<SocketInteracti
 
             await FollowupWithFilesAsync(
                 files,
-                $":tada: Done!\n\nFiles:\n{fileList}{compressionNote}\n\n" +
-                "The pseudocode follows AT&T syntax: source operand(s) come first, and the destination is always the last operand." +
-                "Note: The files below have the `.lua` extension to get successfully embedded in the Discord Client. " +
+                $"## :tada: Done!\n\n### Files:\n\n{fileList}{compressionNote}\n### Notes:\n\n" +
+                "- The pseudocode follows AT&T syntax: source operand(s) come first, and the destination is always the last operand.\n" +
+                "- The files below have the `.lua` extension to get successfully embedded in the Discord Client; " +
                 "We do not plan on supporting [PUC-Rio (aka vanilla) Lua](<https://www.lua.org/>).\n\n" +
                 "_This is not a final product. This is a testing preview. Features are subject to change and may not currently function properly._"
             );
