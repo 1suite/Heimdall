@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Runtime;
 using System.Threading.Channels;
 
 using Discord;
@@ -51,13 +52,17 @@ public class IrWorkerPool
             try
             {
                 await RunJobAsync(job, pseudoEmitter);
-
-                if (pseudoEmitter.Capacity > maxCapacityBeforeReset)
-                    pseudoEmitter = new PseudoEmitter();
             }
             catch (Exception ex)
             {
                 job.Completion.SetException(ex);
+            }
+            finally
+            {
+                if (pseudoEmitter.Capacity > maxCapacityBeforeReset)
+                {
+                    pseudoEmitter = new PseudoEmitter();
+                }
             }
         }
     }
