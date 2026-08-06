@@ -74,16 +74,55 @@ public class IrModule(IrWorkerPool pool) : InteractionModuleBase<SocketInteracti
         await DeferAsync();
 
         var optimizationPipeline = new OptimizationPipeline();
-        if (constantFoldingPass) optimizationPipeline.Passes.Add(new ConstantFoldingPass());
-        if (builtInOptimizationPass) optimizationPipeline.Passes.Add(new BuiltInOptimizationPass());
-        if (copyPropagationPass) optimizationPipeline.Passes.Add(new CopyPropagationPass());
-        if (deadStoreEliminationPass) optimizationPipeline.Passes.Add(new DeadStoreEliminationPass());
-        if (deadCodeEliminationPass) optimizationPipeline.Passes.Add(new DeadCodeEliminationPass());
-        if (blockFoldingPass) optimizationPipeline.Passes.Add(new BlockFoldingPass());
-        if (constantSubstitutionPass) optimizationPipeline.Passes.Add(new ConstantSubstitutionPass());
-        if (unreachableBlockEliminationPass) optimizationPipeline.Passes.Add(new UnreachableBlockEliminationPass());
-        if (phiEliminationPass) optimizationPipeline.Passes.Add(new PhiEliminationPass());
-        if (commonSubexpressionEliminationPass) optimizationPipeline.Passes.Add(new CommonSubexpressionEliminationPass());
+        if (constantFoldingPass)
+        {
+            optimizationPipeline.Passes.Add(new ConstantFoldingPass());
+        }
+
+        if (builtInOptimizationPass)
+        {
+            optimizationPipeline.Passes.Add(new BuiltInOptimizationPass());
+        }
+
+        if (copyPropagationPass)
+        {
+            optimizationPipeline.Passes.Add(new CopyPropagationPass());
+        }
+
+        if (deadStoreEliminationPass)
+        {
+            optimizationPipeline.Passes.Add(new DeadStoreEliminationPass());
+        }
+
+        if (deadCodeEliminationPass)
+        {
+            optimizationPipeline.Passes.Add(new DeadCodeEliminationPass());
+        }
+
+        if (blockFoldingPass)
+        {
+            optimizationPipeline.Passes.Add(new BlockFoldingPass());
+        }
+
+        if (constantSubstitutionPass)
+        {
+            optimizationPipeline.Passes.Add(new ConstantSubstitutionPass());
+        }
+
+        if (unreachableBlockEliminationPass)
+        {
+            optimizationPipeline.Passes.Add(new UnreachableBlockEliminationPass());
+        }
+
+        if (phiEliminationPass)
+        {
+            optimizationPipeline.Passes.Add(new PhiEliminationPass());
+        }
+
+        if (commonSubexpressionEliminationPass)
+        {
+            optimizationPipeline.Passes.Add(new CommonSubexpressionEliminationPass());
+        }
 
         var messageContents = new StringBuilder();
         messageContents.AppendLine("## :hourglass: Processing...\n\nCurrently processing your input file with the following optimization passes:\n\n```");
