@@ -7,13 +7,25 @@ on:
     branches: [ "main" ]
 
 jobs:
-  lint:
+  build:
     runs-on: ubuntu-latest
+
     steps:
     - uses: actions/checkout@v7
+      with:
+        submodules: true
+        token: ${{ secrets.CHECKOUT_PAT }}
+    - name: Setup .NET 9.0
+      uses: actions/setup-dotnet@v6
+      with:
+        dotnet-version: 9.0.x
     - name: Setup .NET 10.0
       uses: actions/setup-dotnet@v6
       with:
         dotnet-version: 10.0.x
-    - name: Check formatting
-      run: dotnet format --no-restore --verify-no-changes
+    - name: Restore dependencies
+      run: dotnet restore
+    - name: Check formatting and style
+      run: dotnet format --verify-no-changes --severity error
+    - name: Build
+      run: dotnet build --no-restore
