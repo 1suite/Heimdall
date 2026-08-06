@@ -55,7 +55,16 @@ public class IrModule(IrWorkerPool pool) : InteractionModuleBase<SocketInteracti
         bool phiEliminationPass = true,
 
         [Summary("unreachable-block-pass", "Sets the unreachable block elimination pass (default: True)")]
-        bool unreachableBlockEliminationPass = true
+        bool unreachableBlockEliminationPass = true,
+
+        [Summary("orphaned-closure-cleanup-pass", "Sets the orphaned closure cleanup pass (default: True)")]
+        bool orphanedClosureCleanupPass = true,
+
+        [Summary("cell-dead-store-elimination-pass", "Sets the cell dead store elimination pass (default: True)")]
+        bool cellDeadStoreEliminationPass = true,
+
+        [Summary("cell-promotion-pass", "Sets the cell promotion pass (default: True)")]
+        bool cellPromotionPass = true
     )
     {
         if (attachment.Size > _maxFileSizeBytes)
@@ -122,6 +131,21 @@ public class IrModule(IrWorkerPool pool) : InteractionModuleBase<SocketInteracti
         if (commonSubexpressionEliminationPass)
         {
             optimizationPipeline.Passes.Add(new CommonSubexpressionEliminationPass());
+        }
+
+        if (orphanedClosureCleanupPass)
+        {
+            optimizationPipeline.Passes.Add(new OrphanedClosureCleanupPass());
+        }
+
+        if (cellDeadStoreEliminationPass)
+        {
+            optimizationPipeline.Passes.Add(new CellDeadStoreEliminationPass());
+        }
+
+        if (cellPromotionPass)
+        {
+            optimizationPipeline.Passes.Add(new CellPromotionPass());
         }
 
         var messageContents = new StringBuilder();
