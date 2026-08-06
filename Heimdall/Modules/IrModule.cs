@@ -4,8 +4,8 @@ using System.Text;
 using Discord;
 using Discord.Interactions;
 
-using OneObfuscator.Engine.IR.Optimization;
-using OneObfuscator.Engine.IR.Optimization.Passes;
+using Hydronium.Core.Optimization;
+using Hydronium.Core.Optimization.Passes;
 
 namespace Heimdall.Modules;
 

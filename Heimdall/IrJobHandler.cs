@@ -4,11 +4,12 @@ using System.Threading.Channels;
 
 using Discord;
 
+using Hydronium.Core;
+using Hydronium.Core.Optimization;
+
 using OneObfuscator.Emitters.LuauFrontend;
 using OneObfuscator.Engine;
 using OneObfuscator.Engine.Exceptions;
-using OneObfuscator.Engine.IR;
-using OneObfuscator.Engine.IR.Optimization;
 
 namespace Heimdall;
 
