@@ -20,6 +20,7 @@ jobs:
           repositories: |
             Heimdall
             OneObfuscator
+            Hydronium
 
       - name: Checkout with submodules
         uses: actions/checkout@v7
