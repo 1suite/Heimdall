@@ -11,21 +11,40 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v7
+    - name: Generate App token
+      id: app-token
+      uses: actions/create-github-app-token@v3
       with:
-        submodules: true
-        token: ${{ secrets.CHECKOUT_PAT }}
+        client-id: ${{ secrets.CLIENT_ID }}
+        private-key: ${{ secrets.APP_PRIVATE_KEY }}
+        owner: 1suite
+        repositories: |
+          Heimdall
+          OneObfuscator
+          Hydronium
+
+    - name: Checkout with submodules
+      uses: actions/checkout@v7
+      with:
+        submodules: recursive
+        fetch-depth: 0
+        token: ${{ steps.app-token.outputs.token }}
+
     - name: Setup .NET 9.0
       uses: actions/setup-dotnet@v6
       with:
         dotnet-version: 9.0.x
+
     - name: Setup .NET 10.0
       uses: actions/setup-dotnet@v6
       with:
         dotnet-version: 10.0.x
+
     - name: Restore dependencies
       run: dotnet restore
+
     - name: Check formatting and style
       run: dotnet format --verify-no-changes --severity error
+
     - name: Build
       run: dotnet build --no-restore
