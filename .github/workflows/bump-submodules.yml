@@ -2,13 +2,33 @@ name: Bump submodules
 on:
   repository_dispatch:
     types: [submodule-updated]
-  workflow_dispatch: {}
+  workflow_dispatch:
+    inputs:
+      commit_detail:
+        description: 'Commit detail level in PR bodies'
+        required: false
+        type: choice
+        options:
+          - disabled
+          - redacted
+          - visible
+        default: redacted
   schedule:
     - cron: '0 6 * * *'
+
+concurrency:
+  group: bump-submodules
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
 
 jobs:
   bump:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - name: Generate App token
         id: app-token
@@ -34,43 +54,175 @@ jobs:
           git config user.name "submodule-bumper[bot]"
           git config user.email "submodule-bumper[bot]@users.noreply.github.com"
 
-      - name: Bump each submodule and open a PR if changed
+      - name: Ensure submodule_bump label exists
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
         run: |
-          set -e
+          gh label create submodule_bump --color 0e7cb4 \
+            --description "Automated submodule version bump" --force
 
-          paths=$(git config --file .gitmodules --get-regexp path | awk '{print $2}')
+      - name: Bump each submodule and open a PR if changed
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          COMMIT_DETAIL_MODE: ${{ github.event.inputs.commit_detail || 'redacted' }}
+        run: |
+          set -uo pipefail
 
-          for path in $paths; do
+          MAX_RETRIES=5
+          BASE_DELAY=5
+
+          retry() {
+            local attempt=1
+            until "$@"; do
+              if [ "$attempt" -ge "$MAX_RETRIES" ]; then
+                echo "::error::Command failed after ${attempt} attempts: $*"
+                return 1
+              fi
+              local delay=$((BASE_DELAY * attempt))
+              echo "Attempt ${attempt} failed for: $* — retrying in ${delay}s"
+              sleep "$delay"
+              attempt=$((attempt + 1))
+            done
+          }
+
+          normalize_url() {
+            local url="$1"
+            url="${url%.git}"
+            if [[ "$url" == git@*:* ]]; then
+              url="https://${url#git@}"
+              url="${url/:/\/}"
+            fi
+            printf '%s' "$url"
+          }
+
+          summary_file="${GITHUB_STEP_SUMMARY:-/dev/null}"
+          overall_status=0
+
+          echo "## Submodule bump results" >> "$summary_file"
+
+          mapfile -t paths < <(git config --file .gitmodules --get-regexp path | awk '{print $2}')
+
+          for path in "${paths[@]}"; do
+            echo "::group::Processing $path"
             old_sha=$(git rev-parse HEAD:"$path")
 
             git submodule update --remote --merge "$path"
-
             new_sha=$(git -C "$path" rev-parse HEAD)
 
             if [ "$old_sha" = "$new_sha" ]; then
               echo "No change for $path"
+              echo "::endgroup::"
               continue
             fi
 
             name=$(basename "$path")
+            short_old=${old_sha:0:7}
             short_new=${new_sha:0:7}
             branch="bump-submodule/${name}-${short_new}"
+
+            remote_url=$(normalize_url "$(git -C "$path" remote get-url origin)")
+            compare_url="${remote_url}/compare/${old_sha}...${new_sha}"
+            commit_log=$(git -C "$path" log --format='%H %s' "${old_sha}..${new_sha}" 2>/dev/null || true)
+            commit_count=$(printf '%s\n' "$commit_log" | grep -c . || true)
+
+            case "$COMMIT_DETAIL_MODE" in
+              disabled)
+                detail_section=""
+                ;;
+              redacted)
+                detail_section=$'\n\n**Commits:** '"${commit_count} commit(s) — [compare](${compare_url})"
+                ;;
+              visible)
+                detail_lines=""
+                while IFS=' ' read -r csha rest; do
+                  [ -z "$csha" ] && continue
+                  detail_lines="${detail_lines}- [\`${csha:0:7}\`](${remote_url}/commit/${csha}) ${rest}"$'\n'
+                done <<< "$commit_log"
+                detail_section=$'\n\n**Commits:**\n'"${detail_lines}"
+                ;;
+              *)
+                detail_section=""
+                ;;
+            esac
+
+            if git show-ref --verify --quiet "refs/heads/${branch}"; then
+              git branch -D "$branch"
+            fi
 
             git checkout -b "$branch" main
             git submodule update --remote --merge "$path"
             git add "$path"
-            git commit -m "chore(submodule): bump ${path} to ${short_new}" \
-                       -m "Updates submodule '${name}' from ${old_sha:0:7} to ${short_new}."
-            git push -u origin "$branch"
 
-            gh pr create \
-              --title "chore(submodule): bump ${name} to ${short_new}" \
-              --body "Bumps the \`${path}\` submodule from \`${old_sha:0:7}\` to \`${new_sha:0:7}\`." \
-              --base main \
-              --head "$branch"
+            commit_body="Updates submodule '${name}' from ${short_old} to ${short_new}."$'\n\n'"Compare: ${compare_url}"
+            git commit -m "chore(submodule): bump ${name} to ${short_new}" -m "$commit_body"
+
+            if git ls-remote --exit-code --heads origin "$branch" >/dev/null 2>&1; then
+              echo "Remote branch $branch already exists, deleting it"
+              retry git push origin --delete "$branch"
+            fi
+
+            if ! retry git push -u origin "$branch"; then
+              echo "::error::Failed to push $branch after retries"
+              overall_status=1
+              git checkout main
+              git submodule update --init --recursive
+              echo "::endgroup::"
+              continue
+            fi
+
+            pr_body="Bumps the \`${path}\` submodule from [\`${short_old}\`](${remote_url}/commit/${old_sha}) to [\`${short_new}\`](${remote_url}/commit/${new_sha})."
+            pr_body="${pr_body}"$'\n\n'"[View full comparison](${compare_url})${detail_section}"
+
+            existing_pr=$(gh pr list --head "$branch" --state open --json number --jq '.[0].number' 2>/dev/null || true)
+
+            if [ -n "$existing_pr" ]; then
+              echo "PR #${existing_pr} already open for $branch, updating body"
+              retry gh pr edit "$existing_pr" --body "$pr_body"
+              pr_number="$existing_pr"
+            else
+              retry gh pr create \
+                --title "chore(submodule): bump ${name} to ${short_new}" \
+                --body "$pr_body" \
+                --base main \
+                --head "$branch"
+              pr_number=$(gh pr view "$branch" --json number --jq '.number')
+            fi
+
+            # Close older open PRs bumping the same submodule, reference the new PR
+            closed_summary=""
+            mapfile -t old_prs < <(gh pr list --state open --json number,headRefName --jq \
+              ".[] | select(.headRefName | startswith(\"bump-submodule/${name}-\")) | select(.headRefName != \"${branch}\") | [.number,.headRefName] | @tsv")
+
+            for entry in "${old_prs[@]:-}"; do
+              [ -z "$entry" ] && continue
+              IFS=$'\t' read -r old_number old_headref <<< "$entry"
+              old_short_sha="${old_headref#bump-submodule/${name}-}"
+              old_full_sha=$(git -C "$path" rev-parse "${old_short_sha}^{commit}" 2>/dev/null || true)
+
+              if [ -n "$old_full_sha" ]; then
+                ahead=$(git -C "$path" rev-list --count "${old_full_sha}..${new_sha}" 2>/dev/null || echo "?")
+              else
+                ahead="?"
+              fi
+
+              retry gh pr close "$old_number" \
+                --comment "Superseded by #${pr_number}, which bumps \`${name}\` ${ahead} commit(s) further."
+              closed_summary="${closed_summary}- #${old_number} — new PR is ${ahead} commit(s) ahead"$'\n'
+            done
+
+            if [ -n "$closed_summary" ]; then
+              pr_body="${pr_body}"$'\n\n'"**Superseded PRs:**"$'\n'"${closed_summary}"
+              retry gh pr edit "$pr_number" --body "$pr_body"
+            fi
+
+            retry gh pr edit "$pr_number" --add-label submodule_bump
+            pr_url=$(gh pr view "$pr_number" --json url --jq '.url')
+
+            echo "- **${name}**: [\`${short_old}\`...\`${short_new}\`](${compare_url}) → ${pr_url}" >> "$summary_file"
 
             git checkout main
             git submodule update --init --recursive
+            echo "::endgroup::"
           done
+
+          exit $overall_status
