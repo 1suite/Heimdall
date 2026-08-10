@@ -44,7 +44,6 @@ jobs:
           GITEA_TOKEN: ${{ secrets.GITEA_SUBMODULE_TOKEN }}
         run: |
           git config --global url."https://${GITEA_TOKEN}@forge.obfuscator.fr/".insteadOf "https://forge.obfuscator.fr/"
-          git config --global url."https://${GITEA_TOKEN}@forge.obfuscator.fr/".insteadOf "git@forge.obfuscator.fr:"
 
       - name: Checkout with submodules
         uses: actions/checkout@v7
