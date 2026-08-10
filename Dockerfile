@@ -1,9 +1,20 @@
+# syntax=docker/dockerfile:1.7
 FROM mcr.microsoft.com/dotnet/sdk:10.0-noble AS build
 WORKDIR /src
 
+RUN apt-get update && apt-get install -y --no-install-recommends git ca-certificates \
+ && rm -rf /var/lib/apt/lists/*
+
 COPY *.slnx .
 COPY Heimdall/*.csproj ./Heimdall/
-COPY OneObfuscator/. ./OneObfuscator/
+
+RUN --mount=type=secret,id=GITEA_TOKEN \
+    git -c http.extraheader="Authorization: token $(cat /run/secrets/GITEA_TOKEN)" \
+    clone --depth 1 https://forge.obfuscator.fr/OneSuite/OneObfuscator.git /src/OneObfuscator \
+ && git -c http.extraheader="Authorization: token $(cat /run/secrets/GITEA_TOKEN)" \
+    clone --depth 1 https://forge.obfuscator.fr/OneSuite/Hydronium.git /src/OneObfuscator/Hydronium \
+ && rm -rf /src/OneObfuscator/.git /src/OneObfuscator/Hydronium/.git
+
 RUN dotnet restore
 
 COPY Heimdall/. ./Heimdall/
