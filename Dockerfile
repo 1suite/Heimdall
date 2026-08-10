@@ -8,10 +8,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends git ca-certific
 COPY *.slnx .
 COPY Heimdall/*.csproj ./Heimdall/
 
-RUN --mount=type=secret,id=GITEA_TOKEN \
-    git -c http.extraheader="Authorization: token $(cat /run/secrets/GITEA_TOKEN)" \
+RUN git -c http.extraheader="Authorization: token ${GITEA_TOKEN}" \
     clone --depth 1 https://forge.obfuscator.fr/OneSuite/OneObfuscator.git /src/OneObfuscator \
- && git -c http.extraheader="Authorization: token $(cat /run/secrets/GITEA_TOKEN)" \
+ && git -c http.extraheader="Authorization: token ${GITEA_TOKEN}" \
     clone --depth 1 https://forge.obfuscator.fr/OneSuite/Hydronium.git /src/OneObfuscator/Hydronium \
  && rm -rf /src/OneObfuscator/.git /src/OneObfuscator/Hydronium/.git
 
