@@ -37,10 +37,14 @@ jobs:
           client-id: ${{ secrets.CLIENT_ID }}
           private-key: ${{ secrets.APP_PRIVATE_KEY }}
           owner: 1suite
-          repositories: |
-            Heimdall
-            OneObfuscator
-            Hydronium
+          repositories: Heimdall
+
+      - name: Configure Gitea auth for submodule remotes
+        env:
+          GITEA_TOKEN: ${{ secrets.GITEA_SUBMODULE_TOKEN }}
+        run: |
+          git config --global url."https://oauth2:${GITEA_TOKEN}@forge.obfuscator.fr/".insteadOf "https://forge.obfuscator.fr/"
+          git config --global url."https://oauth2:${GITEA_TOKEN}@forge.obfuscator.fr/".insteadOf "git@forge.obfuscator.fr:"
 
       - name: Checkout with submodules
         uses: actions/checkout@v7

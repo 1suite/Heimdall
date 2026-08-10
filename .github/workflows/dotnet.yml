@@ -20,8 +20,10 @@ jobs:
         owner: 1suite
         repositories: |
           Heimdall
-          OneObfuscator
-          Hydronium
+
+    - name: Configure Gitea credentials for submodules
+      run: |
+        git config --global url."https://${{ secrets.GITEA_SUBMODULE_TOKEN }}@forge.obfuscator.fr/".insteadOf "https://forge.obfuscator.fr/"
 
     - name: Checkout with submodules
       uses: actions/checkout@v7
