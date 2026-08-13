@@ -159,34 +159,30 @@ public class IrModule(IrWorkerPool pool) : InteractionModuleBase<SocketInteracti
         messageContents.AppendLine("```\n# :stopwatch: Progress\n\n> :incoming_envelope: Submitting IR job to worker pool..."); // Discord code block UI glitch
         var message = await FollowupAsync(messageContents.ToString());
 
-        async Task ReportProgress(IrProgressUpdate update)
+        async Task ReportProgress(string stage, TimeSpan? timeElapsed, bool isSuccess)
         {
-            messageContents.Append($"> :white_check_mark: {update.Stage}!");
+            messageContents.Append($"> {(isSuccess ? ":white_check_mark:" : ":x:")} {stage}!");
 
-            if (update.Elapsed is TimeSpan elapsed)
+            if (timeElapsed is TimeSpan elapsed)
             {
-                messageContents.Append($" _Took `{elapsed.TotalMilliseconds:F0}ms`_").ToString();
+                messageContents.Append($" _Took `{elapsed.TotalMilliseconds:F0}ms`_");
             }
 
             messageContents.AppendLine();
             await message.ModifyAsync(msg => msg.Content = messageContents.ToString());
         }
 
-        var job = new IrJob(attachment, optimizationPipeline, ReportProgress);
+        var job = new IrJob(attachment, optimizationPipeline, u => ReportProgress(u.Stage, u.Elapsed, true));
 
-        IrResult result;
+        IRResult result;
         try
         {
             result = await _pool.SubmitAsync(job);
         }
-        catch (IrProcessingException ex)
-        {
-            await FollowupAsync($"## :x: Error\n\n{ex.Message}\n\n```cs\n{ex.InnerException}\n```");
-            return;
-        }
         catch (Exception ex)
         {
-            await FollowupAsync($"## :x: Error\n\nSomething went wrong processing your file. Please try again, and let us know if it keeps happening.\n\n```cs\n{ex}\n```");
+            await ReportProgress($"An error occured: `{ex.GetType().Name}: {ex.Message}`", null, false);
+            await FollowupAsync($"## :x: Error\n\nSomething went wrong processing your file. Please try again, and let us know if it keeps happening.\n\n```cs\n{ex.ToString()[..500]}\n```");
             return;
         }
 
@@ -195,9 +191,9 @@ public class IrModule(IrWorkerPool pool) : InteractionModuleBase<SocketInteracti
             ("unoptimized_ir.pseudo.lua", Encoding.UTF8.GetBytes(result.UnoptimizedIr)),
         };
 
-        if (result.OptimizedIr is not null)
+        if (result.OptimizedIR is not null)
         {
-            outputs.Add(("optimized_ir.pseudo.lua", Encoding.UTF8.GetBytes(result.OptimizedIr)));
+            outputs.Add(("optimized_ir.pseudo.lua", Encoding.UTF8.GetBytes(result.OptimizedIR)));
         }
 
         var longestLengthBytes = outputs.Count > 1
@@ -241,7 +237,7 @@ public class IrModule(IrWorkerPool pool) : InteractionModuleBase<SocketInteracti
                 return;
             }
 
-            var fileList = result.OptimizedIr is not null
+            var fileList = result.OptimizedIR is not null
                 ? "1. The file named `unoptimized_ir.pseudo.lua` is the unoptimized IR\n2. The file named `optimized_ir.pseudo.lua` is the Optimized IR"
                 : "1. The file named `unoptimized_ir.pseudo.lua` is the unoptimized IR (no optimization passes were enabled)";
 
