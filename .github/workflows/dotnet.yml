@@ -11,16 +11,6 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Generate App token
-      id: app-token
-      uses: actions/create-github-app-token@v3
-      with:
-        client-id: ${{ secrets.CHECKOUT_APP_CLIENT_ID }}
-        private-key: ${{ secrets.CHECKOUT_APP_PRIVATE_KEY }}
-        owner: 1suite
-        repositories: |
-          Heimdall
-
     - name: Configure Gitea credentials for submodules
       run: |
         git config --global url."https://${{ secrets.GITEA_SUBMODULE_TOKEN }}@forge.obfuscator.fr/".insteadOf "https://forge.obfuscator.fr/"
@@ -30,7 +20,6 @@ jobs:
       with:
         submodules: recursive
         fetch-depth: 0
-        token: ${{ steps.app-token.outputs.token }}
 
     - name: Setup .NET 9.0
       uses: actions/setup-dotnet@v6
