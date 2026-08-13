@@ -12,8 +12,11 @@ jobs:
 
     steps:
     - name: Configure Gitea credentials for submodules
+      env:
+        TOKEN: ${{ secrets.GITEA_SUBMODULE_TOKEN }}
       run: |
         git config --global url."https://${{ secrets.GITEA_SUBMODULE_TOKEN }}@forge.obfuscator.fr/".insteadOf "https://forge.obfuscator.fr/"
+        echo ${#TOKEN}
 
     - name: Checkout with submodules
       uses: actions/checkout@v7
