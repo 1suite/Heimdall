@@ -15,14 +15,14 @@ namespace Heimdall;
 
 public record IrProgressUpdate(string Stage, TimeSpan? Elapsed);
 
-public record IrResult(string UnoptimizedIr, string? OptimizedIr);
+public record IRResult(string UnoptimizedIr, string? OptimizedIR);
 
 public class IrJob(IAttachment attachment, OptimizationPipeline optimizationPipeline, Func<IrProgressUpdate, Task> onProgress)
 {
     public IAttachment Attachment { get; init; } = attachment;
     public OptimizationPipeline OptimizationPipeline { get; init; } = optimizationPipeline;
     public Func<IrProgressUpdate, Task> OnProgress { get; init; } = onProgress;
-    public TaskCompletionSource<IrResult> Completion { get; } = new();
+    public TaskCompletionSource<IRResult> Completion { get; } = new();
 }
 
 public class IrWorkerPool
@@ -79,9 +79,13 @@ public class IrWorkerPool
         }
         catch (HttpRequestException ex)
         {
-            throw new IrProcessingException("Failed to download the attachment. It may have expired or been removed.", ex);
+            throw new IrProcessingException($"Failed to download the [attachement]({job.Attachment.Url}). It may have expired or been removed.", ex);
         }
 
+        sw.Stop();
+        await job.OnProgress(new IrProgressUpdate($"Downloaded [attachement]({job.Attachment.Url})", sw.Elapsed));
+
+        sw.Restart();
         LuauIR ir;
         try
         {
@@ -97,14 +101,14 @@ public class IrWorkerPool
         }
 
         sw.Stop();
-        await job.OnProgress(new IrProgressUpdate("Compiled to IR", sw.Elapsed));
+        await job.OnProgress(new IrProgressUpdate("Compiled to Hydronium IR", sw.Elapsed));
 
         var emittedUnoptimizedIr = pseudoEmitter.Emit(ir.EntryBlock);
         await job.OnProgress(new IrProgressUpdate("Built _unoptimized_ IR textually", null));
 
         if (job.OptimizationPipeline.Passes.Count == 0)
         {
-            job.Completion.SetResult(new IrResult(emittedUnoptimizedIr, null));
+            job.Completion.SetResult(new IRResult(emittedUnoptimizedIr, null));
             return;
         }
 
@@ -124,11 +128,10 @@ public class IrWorkerPool
         var emittedOptimizedIr = pseudoEmitter.Emit(ir.EntryBlock);
         await job.OnProgress(new IrProgressUpdate("Built _optimized_ IR textually", null));
 
-        job.Completion.SetResult(new IrResult(emittedUnoptimizedIr, emittedOptimizedIr));
-        Debug.WriteLine("[diag] Set result!");
+        job.Completion.SetResult(new IRResult(emittedUnoptimizedIr, emittedOptimizedIr));
     }
 
-    public async Task<IrResult> SubmitAsync(IrJob job)
+    public async Task<IRResult> SubmitAsync(IrJob job)
     {
         await _channel.Writer.WriteAsync(job);
         return await job.Completion.Task;
