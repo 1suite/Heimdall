@@ -38,7 +38,7 @@ class Program
         var branch = Environment.GetEnvironmentVariable("COOLIFY_BRANCH")
                 ?? throw new InvalidOperationException("COOLIFY_BRANCH is missing. Are you running this outside of Coolify?");
 
-        await client.SetGameAsync($"Running commit {commit[..7]} on branch {branch}", type: ActivityType.Streaming);
+        await client.SetGameAsync($"Running commit {commit[..7]} ({branch})", type: ActivityType.Streaming);
 
         await Task.Delay(-1);
     }
