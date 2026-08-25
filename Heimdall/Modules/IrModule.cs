@@ -161,11 +161,11 @@ public class IrModule(IrWorkerPool pool) : InteractionModuleBase<SocketInteracti
 
         async Task ReportProgress(string stage, TimeSpan? timeElapsed, bool isSuccess)
         {
-            messageContents.Append($"> {(isSuccess ? ":white_check_mark:" : ":x:")} {stage}!");
+            messageContents.Append($"> {(isSuccess ? ":white_check_mark:" : ":x:")} {stage}");
 
             if (timeElapsed is TimeSpan elapsed)
             {
-                messageContents.Append($" _Took `{elapsed.TotalMilliseconds:F0}ms`_");
+                messageContents.Append($" (Took `{elapsed.TotalMilliseconds:F0}ms`)");
             }
 
             messageContents.AppendLine();
@@ -182,7 +182,12 @@ public class IrModule(IrWorkerPool pool) : InteractionModuleBase<SocketInteracti
         catch (Exception ex)
         {
             await ReportProgress($"An error occured: `{ex.GetType().Name}: {ex.Message}`", null, false);
-            await FollowupAsync($"## :x: Error\n\nSomething went wrong processing your file. Please try again, and let us know if it keeps happening.\n\n```cs\n{ex.ToString()[..500]}\n```");
+
+            var msg = ex.ToString();
+            var truncatedMsg = msg[..1500];
+            var suffix = truncatedMsg != msg ? $"\n\n... error truncated" : "";
+
+            await FollowupAsync($"## :x: Error\n\nSomething went wrong processing your file. Please try again, and let us know if it keeps happening.\n\n```cs\n{truncatedMsg}{suffix}\n```");
             return;
         }
 
