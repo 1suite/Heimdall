@@ -184,7 +184,7 @@ public class IrModule(IrWorkerPool pool) : InteractionModuleBase<SocketInteracti
             await ReportProgress($"An error occured: `{ex.GetType().Name}: {ex.Message}`", null, false);
 
             var msg = ex.ToString();
-            var truncatedMsg = msg[..1500];
+            var truncatedMsg = msg.Length > 1501 ? msg[..1500] : msg;
             var suffix = truncatedMsg != msg ? $"\n\n... error truncated" : "";
 
             await FollowupAsync($"## :x: Error\n\nSomething went wrong processing your file. Please try again, and let us know if it keeps happening.\n\n```cs\n{truncatedMsg}{suffix}\n```");
