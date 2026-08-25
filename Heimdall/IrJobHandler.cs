@@ -79,11 +79,11 @@ public class IrWorkerPool
         }
         catch (HttpRequestException ex)
         {
-            throw new IrProcessingException($"Failed to download the [attachement]({job.Attachment.Url}). It may have expired or been removed.", ex);
+            throw new IrProcessingException($"Failed to download the [attachment]({job.Attachment.Url}). It may have expired or been removed.", ex);
         }
 
         sw.Stop();
-        await job.OnProgress(new IrProgressUpdate($"Downloaded [attachement]({job.Attachment.Url})", sw.Elapsed));
+        await job.OnProgress(new IrProgressUpdate($"Downloaded [attachment]({job.Attachment.Url})", sw.Elapsed));
 
         sw.Restart();
         LuauIR ir;
