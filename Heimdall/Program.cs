@@ -32,7 +32,13 @@ class Program
         );
 
         await client.StartAsync();
-        await client.SetGameAsync("Great mountains shall never bow", type: ActivityType.Streaming);
+
+        var commit = Environment.GetEnvironmentVariable("SOURCE_COMMIT")
+                ?? throw new InvalidOperationException("SOURCE_COMMIT is missing. Are you running this outside of Coolify?");
+        var branch = Environment.GetEnvironmentVariable("COOLIFY_BRANCH")
+                ?? throw new InvalidOperationException("COOLIFY_BRANCH is missing. Are you running this outside of Coolify?");
+
+        await client.SetGameAsync($"Running commit {commit[..7]} ({branch})", type: ActivityType.Streaming);
 
         await Task.Delay(-1);
     }
